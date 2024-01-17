@@ -1,0 +1,256 @@
+-- 1.a
+CREATE OR REPLACE VIEW CURRENTLY_BORROWED_BOOKS AS
+    SELECT
+        B.TITLE,
+        P.PUBLISHER_NAME,
+        R.RENTAL_DATE
+    FROM
+        RENTAL_TBL R
+    LEFT JOIN
+            COPY_TBL C ON R.COPY_ID = C.COPY_ID
+    LEFT JOIN
+            BOOK_TBL B ON C.BOOK_ID = B.BOOK_ID
+    LEFT JOIN
+            PUBLISHER_TBL P ON B.PUBLISHER_ID = P.PUBLISHER_ID
+    WHERE
+        R.RETURN_DATE IS NULL;
+
+SELECT * FROM CURRENTLY_BORROWED_BOOKS;
+
+-- 1.b
+CREATE OR REPLACE VIEW CURRENTLY_BORROWED_AT_LEAST_ONE_BOOK AS
+    SELECT
+        RE.RENTAL_DATE,
+        R.LAST_NAME,
+        R.FIRST_NAME
+    FROM
+        RENTAL_TBL RE
+    LEFT JOIN
+            READER_TBL R ON RE.READER_ID = R.READER_ID
+    WHERE
+        RE.RETURN_DATE IS NULL
+    GROUP BY
+        RE.RENTAL_DATE, R.LAST_NAME, R.FIRST_NAME, RE.RENTAL_ID
+    HAVING
+        COUNT(RE.RENTAL_ID) >= 1;
+
+SELECT * FROM CURRENTLY_BORROWED_AT_LEAST_ONE_BOOK;
+
+-- 1.c
+CREATE OR REPLACE VIEW EMPLOYEES_WITH_CURRENTLY_BORROWED_BOOKS AS
+    SELECT
+        RE.RENTAL_DATE,
+        E.LAST_NAME,
+        E.FIRST_NAME
+    FROM
+        RENTAL_TBL RE
+    LEFT JOIN
+        EMPLOYEE_TBL E ON RE.EMPLOYEE_ID_RENT = E.EMPLOYEE_ID
+    WHERE
+        RE.RETURN_DATE IS NULL;
+
+SELECT * FROM EMPLOYEES_WITH_CURRENTLY_BORROWED_BOOKS;
+
+-- 2.a
+CREATE OR REPLACE VIEW AUTHORS_WITH_ONE_PUBLISHED_BOOK AS
+    SELECT
+        A.FIRST_NAME,
+        A.LAST_NAME
+    FROM
+        AUTHOR_TBL A
+    LEFT JOIN
+        AUTHOR_BOOK_TBL AB ON A.AUTHOR_ID = AB.AUTHOR_ID
+    GROUP BY
+        A.FIRST_NAME, A.LAST_NAME, A.AUTHOR_ID
+    HAVING
+        COUNT(AB.BOOK_ID) = 1;
+
+SELECT * FROM AUTHORS_WITH_ONE_PUBLISHED_BOOK;
+
+-- 2.b
+CREATE OR REPLACE VIEW READERS_HOLDING_BOOK_OVER_THREE_MONTHS AS
+    SELECT
+        R.FIRST_NAME,
+        R.LAST_NAME
+    FROM
+        READER_TBL R
+    LEFT JOIN
+        RENTAL_TBL RE ON R.READER_ID = RE.READER_ID
+    WHERE
+        RE.RETURN_DATE IS NULL
+      AND
+        SYSDATE - RE.RENTAL_DATE > 90;
+
+SELECT * FROM READERS_HOLDING_BOOK_OVER_THREE_MONTHS;
+
+-- 2.c
+CREATE OR REPLACE VIEW EMPLOYEES_WITH_AT_LEAST_TWO_INVOICES AS
+    SELECT
+        E.FIRST_NAME,
+        E.LAST_NAME,
+        E.POSITION_TITLE
+    FROM
+        EMPLOYEE_TBL E
+    LEFT JOIN
+        INVOICE_TBL I ON E.EMPLOYEE_ID = I.EMPLOYEE_ID
+    GROUP BY
+        E.FIRST_NAME, E.LAST_NAME, E.POSITION_TITLE, E.EMPLOYEE_ID
+    HAVING
+        COUNT(I.INVOICE_ID) >= 2;
+
+SELECT * FROM EMPLOYEES_WITH_AT_LEAST_TWO_INVOICES;
+
+-- 3.a
+CREATE OR REPLACE FORCE VIEW EMPLOYEE_VIEW_FORCE AS
+    SELECT
+        EMPLOYEE_ID, FIRST_NAME, LAST_NAME, SALARY
+    FROM
+        EMPLOYEE_TBL
+    WHERE
+        SALARY > 0;
+
+SELECT * FROM EMPLOYEE_VIEW_FORCE;
+
+-- 3.b
+CREATE OR REPLACE VIEW EMPLOYEE_VIEW_CHECK_OPTION AS
+    SELECT
+        EMPLOYEE_ID,
+        FIRST_NAME,
+        LAST_NAME,
+        SALARY
+    FROM
+        EMPLOYEE_TBL
+    WHERE
+        SALARY > 0
+    WITH CHECK OPTION CONSTRAINT salary_check;
+
+SELECT * FROM EMPLOYEE_VIEW_CHECK_OPTION;
+
+-- 3.c
+CREATE OR REPLACE VIEW EMPLOYEE_VIEW_READ_ONLY AS
+    SELECT
+        EMPLOYEE_ID,
+        FIRST_NAME,
+        LAST_NAME,
+        SALARY
+    FROM
+        EMPLOYEE_TBL
+    WHERE
+        SALARY > 0
+    WITH READ ONLY;
+
+SELECT * FROM EMPLOYEE_VIEW_READ_ONLY;
+
+-- 4.a
+DECLARE
+    v_first_name READER_TBL.FIRST_NAME%TYPE := 'John';
+    v_last_name READER_TBL.LAST_NAME%TYPE := 'Doe';
+    v_reader_id READER_TBL.READER_ID%TYPE;
+    v_first_name_result READER_TBL.FIRST_NAME%TYPE;
+    v_last_name_result READER_TBL.LAST_NAME%TYPE;
+    v_num_borrowings NUMBER;
+BEGIN
+    DBMS_OUTPUT.ENABLE();
+   SELECT
+       R.READER_ID,
+       R.FIRST_NAME,
+       R.LAST_NAME,
+       COUNT(RE.RENTAL_ID) AS NUMBER_OF_BORROWINGS
+   INTO
+        v_reader_id,
+        v_first_name_result,
+        v_last_name_result,
+        v_num_borrowings
+    FROM
+        READER_TBL R
+    LEFT JOIN
+        RENTAL_TBL RE ON RE.READER_ID = R.READER_ID
+    WHERE
+        R.FIRST_NAME = v_first_name
+      AND
+        R.LAST_NAME = v_last_name
+    GROUP BY
+        R.READER_ID, R.FIRST_NAME, R.LAST_NAME;
+
+    DBMS_OUTPUT.PUT_LINE('Reader ID: ' || v_reader_id);
+    DBMS_OUTPUT.PUT_LINE('First Name: ' || v_first_name_result);
+    DBMS_OUTPUT.PUT_LINE('Last Name: ' || v_last_name_result);
+    DBMS_OUTPUT.PUT_LINE('Number of Borrowings: ' || v_num_borrowings);
+END;
+
+-- 4.b
+DECLARE
+    v_first_name EMPLOYEE_TBL.FIRST_NAME%TYPE := 'Adam';
+    v_last_name EMPLOYEE_TBL.LAST_NAME%TYPE := 'Scott';
+    v_employee_id EMPLOYEE_TBL.EMPLOYEE_ID%TYPE;
+    v_position EMPLOYEE_TBL.POSITION_TITLE%TYPE;
+    v_salary EMPLOYEE_TBL.SALARY%TYPE;
+    v_num_invoices NUMBER;
+BEGIN
+    DBMS_OUTPUT.ENABLE();
+
+    SELECT
+        E.EMPLOYEE_ID,
+        E.POSITION_TITLE,
+        E.SALARY,
+        COUNT(I.INVOICE_ID) AS NUMBER_OF_INVOICES
+    INTO
+        v_employee_id,
+        v_position,
+        v_salary,
+        v_num_invoices
+    FROM
+        EMPLOYEE_TBL E
+    LEFT JOIN
+        INVOICE_TBL I ON I.EMPLOYEE_ID = E.EMPLOYEE_ID
+    WHERE
+        E.FIRST_NAME = v_first_name
+      AND
+        E.LAST_NAME = v_last_name
+    GROUP BY
+        E.EMPLOYEE_ID,
+        E.POSITION_TITLE,
+        E.SALARY;
+
+    DBMS_OUTPUT.PUT_LINE('Employee ID: ' || v_employee_id);
+    DBMS_OUTPUT.PUT_LINE('Position: ' || v_position);
+    DBMS_OUTPUT.PUT_LINE('Salary: ' || v_salary);
+    DBMS_OUTPUT.PUT_LINE('Number of Invoices: ' || v_num_invoices);
+END;
+
+-- 4.c
+DECLARE
+    v_book_title BOOK_TBL.TITLE%TYPE := 'Tides of Time';
+    v_book_id BOOK_TBL.BOOK_ID%TYPE;
+    v_publisher_id BOOK_TBL.PUBLISHER_ID%TYPE;
+    v_publication_year BOOK_TBL.PUBLICATION_YEAR%TYPE;
+    v_num_copies NUMBER;
+BEGIN
+    DBMS_OUTPUT.ENABLE();
+
+    SELECT
+        B.BOOK_ID,
+        B.PUBLISHER_ID,
+        B.PUBLICATION_YEAR,
+        COUNT(C.COPY_ID) AS NUMBER_OF_COPIES
+    INTO
+        v_book_id,
+        v_publisher_id,
+        v_publication_year,
+        v_num_copies
+    FROM
+        BOOK_TBL B
+    LEFT JOIN
+        COPY_TBL C ON C.BOOK_ID = B.BOOK_ID
+    WHERE
+        B.TITLE = v_book_title
+    GROUP BY
+        B.BOOK_ID,
+        B.PUBLISHER_ID,
+        B.PUBLICATION_YEAR;
+
+    DBMS_OUTPUT.PUT_LINE('Book ID: ' || v_book_id);
+    DBMS_OUTPUT.PUT_LINE('Publisher ID: ' || v_publisher_id);
+    DBMS_OUTPUT.PUT_LINE('Publication Year: ' || v_publication_year);
+    DBMS_OUTPUT.PUT_LINE('Number of Copies: ' || v_num_copies);
+END;
