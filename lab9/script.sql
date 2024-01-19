@@ -1,0 +1,421 @@
+-- 1.a
+CREATE OR REPLACE PROCEDURE INSERT_READER AS
+    BEGIN
+        INSERT INTO READER_TBL (
+            READER_ID,
+            FIRST_NAME,
+            LAST_NAME,
+            STREET_NAME,
+            HOUSE_NUM,
+            APARTMENT_NUM,
+            POSTAL_CODE,
+            MAIL_TOWN
+        ) VALUES (
+            READER_SEQ.nextval,
+            DBMS_RANDOM.STRING('A', 10),
+            DBMS_RANDOM.STRING('A', 10),
+            DBMS_RANDOM.STRING('A', 15),
+            TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(100, 999))),
+            TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1, 999))),
+            DBMS_RANDOM.STRING('N', 5),
+            DBMS_RANDOM.STRING('A', 10)
+        );
+        COMMIT;
+    END INSERT_READER;
+
+BEGIN
+   INSERT_READER();
+END;
+
+SELECT * FROM READER_TBL;
+
+-- 1.b
+CREATE OR REPLACE PROCEDURE INSERT_EMPLOYEE AS
+BEGIN
+    INSERT INTO EMPLOYEE_TBL(
+        EMPLOYEE_ID,
+        FIRST_NAME,
+        LAST_NAME,
+        POSITION_TITLE,
+        SALARY,
+        STREET_NAME,
+        HOUSE_NUM,
+        APARTMENT_NUM,
+        POSTAL_CODE,
+        CITY,
+        MOBILE_PHONE
+    ) VALUES (
+        EMPLOYEE_SEQ.nextval,
+        DBMS_RANDOM.STRING('A', 10),
+        DBMS_RANDOM.STRING('A', 10),
+        DBMS_RANDOM.STRING('A', 10),
+        ROUND(DBMS_RANDOM.VALUE(50000, 100000), 2),
+        DBMS_RANDOM.STRING('A', 15),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(100, 999))),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1, 999))),
+        DBMS_RANDOM.STRING('N', 5),
+        DBMS_RANDOM.STRING('A', 10),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(100000000, 999999999)))
+    );
+    COMMIT;
+END INSERT_EMPLOYEE;
+
+BEGIN
+   INSERT_EMPLOYEE();
+END;
+
+SELECT * FROM EMPLOYEE_TBL;
+
+-- 1.c
+CREATE OR REPLACE PROCEDURE INSERT_PUBLISHER AS
+BEGIN
+   INSERT INTO PUBLISHER_TBL (
+        PUBLISHER_ID,
+        PUBLISHER_NAME,
+        TAX_ID,
+        STREET_NAME,
+        HOUSE_NUM,
+        APARTMENT_NUM,
+        POSTAL_CODE,
+        CITY
+    ) VALUES (
+        PUBLISHER_SEQ.nextval,
+        DBMS_RANDOM.STRING('A', 10),
+        DBMS_RANDOM.STRING('A', 10),
+        DBMS_RANDOM.STRING('A', 10),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1, 999))),
+        DBMS_RANDOM.STRING('A', 1),
+        DBMS_RANDOM.STRING('N', 5),
+        DBMS_RANDOM.STRING('A', 10)
+    );
+END INSERT_PUBLISHER;
+
+BEGIN
+   INSERT_PUBLISHER();
+END;
+
+SELECT * FROM PUBLISHER_TBL;
+
+-- 2.a
+CREATE OR REPLACE FUNCTION AVERAGE_SALARY(v_position IN VARCHAR2)
+RETURN NUMBER IS v_average_salary NUMBER(12, 2);
+BEGIN
+    SELECT
+        AVG(SALARY)
+    INTO
+        v_average_salary
+    FROM
+        EMPLOYEE_TBL
+    WHERE
+        POSITION_TITLE = v_position;
+    RETURN v_average_salary;
+END AVERAGE_SALARY;
+
+SELECT AVERAGE_SALARY('Librarian') FROM DUAL;
+
+-- 2.b
+CREATE OR REPLACE FUNCTION READERS_NUMBER_OF_LOANS(v_reader_id IN NUMBER)
+RETURN NUMBER IS v_reader_number_of_loans NUMBER(8, 0);
+BEGIN
+    SELECT
+        COUNT(RE.RENTAL_ID)
+    INTO
+        v_reader_number_of_loans
+    FROM
+        READER_TBL R
+    LEFT JOIN
+        RENTAL_TBL RE ON R.READER_ID = RE.READER_ID
+    WHERE
+        R.READER_ID = v_reader_id;
+    RETURN v_reader_number_of_loans;
+END;
+
+SELECT READERS_NUMBER_OF_LOANS(1) FROM DUAL;
+
+-- 2.c
+CREATE OR REPLACE FUNCTION NUMBER_OF_AVAILABLE_COPIES_OF_BOOK(v_book_title IN VARCHAR2)
+RETURN NUMBER IS v_number_of_available_copies_of_book NUMBER(8, 0);
+BEGIN
+    SELECT
+        COUNT(C.COPY_ID)
+    INTO
+        v_number_of_available_copies_of_book
+    FROM
+        BOOK_TBL B
+    LEFT JOIN
+        COPY_TBL C ON B.BOOK_ID = C.BOOK_ID
+    LEFT JOIN
+        RENTAL_TBL R ON C.COPY_ID = R.COPY_ID
+    WHERE
+        B.TITLE = v_book_title AND R.RETURN_DATE IS NOT NULL;
+    RETURN v_number_of_available_copies_of_book;
+END;
+
+SELECT NUMBER_OF_AVAILABLE_COPIES_OF_BOOK('The Last Stand') FROM DUAL;
+
+-- 3.a
+CREATE OR REPLACE PROCEDURE INSERT_INVOICE_AND_COPY AS
+   v_invoice_id NUMBER;
+BEGIN
+   INSERT INTO INVOICE_TBL (
+        INVOICE_ID,
+        ISSUE_DATE,
+        INVOICE_NUMBER,
+        PUBLISHER_ID,
+        EMPLOYEE_ID
+    ) VALUES (
+        INVOICE_SEQ.nextval,
+        SYSDATE,
+        '123456',
+        1,
+        2
+    ) RETURNING INVOICE_ID INTO v_invoice_id;
+
+    INSERT INTO COPY_TBL (
+        COPY_ID,
+        BOOK_ID,
+        GROSS_PRICE,
+        VAT,
+        INVOICE_ID
+    ) VALUES (
+        COPY_SEQ.nextval,
+        2,
+        25.99,
+        0.05,
+        v_invoice_id
+    );
+   COMMIT;
+END INSERT_INVOICE_AND_COPY;
+
+BEGIN
+   INSERT_INVOICE_AND_COPY();
+END;
+
+SELECT * FROM INVOICE_TBL;
+SELECT * FROM COPY_TBL;
+
+-- 3.b
+CREATE OR REPLACE PROCEDURE INSERT_PUBLISHER_AND_BOOK AS
+    v_publisher_id NUMBER;
+BEGIN
+    INSERT INTO PUBLISHER_TBL(
+        PUBLISHER_ID,
+        PUBLISHER_NAME,
+        TAX_ID,
+        STREET_NAME,
+        HOUSE_NUM,
+        APARTMENT_NUM,
+        POSTAL_CODE,
+        CITY
+    ) VALUES (
+        PUBLISHER_SEQ.nextval,
+        DBMS_RANDOM.STRING('A', 10),
+        DBMS_RANDOM.STRING('A', 10),
+        DBMS_RANDOM.STRING('A', 10),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1, 999))),
+        DBMS_RANDOM.STRING('A', 1),
+        DBMS_RANDOM.STRING('N', 5),
+        DBMS_RANDOM.STRING('A', 10)
+    ) RETURNING PUBLISHER_ID INTO v_publisher_id;
+
+    INSERT INTO BOOK_TBL(
+        BOOK_ID,
+        TITLE,
+        PUBLICATION_YEAR,
+        PUBLISHER_ID
+    ) VALUES (
+        BOOK_SEQ.nextval,
+        DBMS_RANDOM.STRING('A', 20),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1900, 2023))),
+        v_publisher_id
+    );
+
+    COMMIT;
+END INSERT_PUBLISHER_AND_BOOK;
+
+BEGIN
+   INSERT_PUBLISHER_AND_BOOK();
+END;
+
+SELECT * FROM PUBLISHER_TBL;
+SELECT * FROM BOOK_TBL;
+
+-- 3.c
+CREATE OR REPLACE PROCEDURE INSERT_AUTHOR_AND_BOOK AS
+    v_author_id NUMBER;
+    v_book_id NUMBER;
+BEGIN
+   INSERT INTO AUTHOR_TBL(
+        AUTHOR_ID,
+        FIRST_NAME,
+        LAST_NAME
+   ) VALUES (
+        AUTHOR_SEQ.nextval,
+        DBMS_RANDOM.STRING('A', 20),
+        DBMS_RANDOM.STRING('A', 20)
+    ) RETURNING AUTHOR_ID INTO v_author_id;
+
+   INSERT INTO BOOK_TBL(
+        BOOK_ID,
+        TITLE,
+        PUBLICATION_YEAR,
+        PUBLISHER_ID
+    ) VALUES (
+        BOOK_SEQ.nextval,
+        DBMS_RANDOM.STRING('A', 20),
+        TO_CHAR(TRUNC(DBMS_RANDOM.VALUE(1900, 2023))),
+        1
+    ) RETURNING BOOK_ID INTO v_book_id;
+
+   INSERT INTO AUTHOR_BOOK_TBL(
+        BOOK_ID,
+        AUTHOR_ID,
+        AUTHOR_SHARE
+   ) VALUES (
+        v_book_id,
+        v_author_id,
+        100
+    );
+   COMMIT;
+END;
+
+BEGIN
+    INSERT_AUTHOR_AND_BOOK();
+END;
+
+SELECT * FROM AUTHOR_TBL;
+SELECT * FROM AUTHOR_BOOK_TBL;
+SELECT * FROM BOOK_TBL;
+
+-- 4
+CREATE OR REPLACE PROCEDURE DISPLAY_AVERAGE_PRICE_BAR(
+    p_book_title IN VARCHAR2
+) AS
+    v_total_price NUMBER := 0;
+    v_total_copies NUMBER := 0;
+    v_average_price NUMBER;
+    v_star_count NUMBER;
+BEGIN
+    DBMS_OUTPUT.ENABLE();
+    FOR rec IN (SELECT C.GROSS_PRICE
+                FROM COPY_TBL C
+                LEFT JOIN BOOK_TBL B ON C.BOOK_ID = B.BOOK_ID
+                WHERE B.TITLE = p_book_title)
+    LOOP
+        v_total_price := v_total_price + rec.GROSS_PRICE;
+        v_total_copies := v_total_copies + 1;
+    END LOOP;
+
+    IF v_total_copies > 0 THEN
+        v_average_price := v_total_price / v_total_copies;
+        v_star_count := TRUNC(v_average_price / 5);
+        DBMS_OUTPUT.PUT_LINE('Average Price: ' || TO_CHAR(v_average_price, 'FM999999.99'));
+        DBMS_OUTPUT.PUT_LINE('Bar: ' || RPAD('*', v_star_count, '*'));
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('No copies found for the specified book.');
+    END IF;
+END DISPLAY_AVERAGE_PRICE_BAR;
+
+DECLARE
+    v_book_title VARCHAR2(50) := 'The Last Stand';
+BEGIN
+    DISPLAY_AVERAGE_PRICE_BAR(p_book_title => v_book_title);
+END;
+
+-- 5.a
+ALTER TABLE COPY_TBL
+ADD STATE VARCHAR2(1 CHAR) DEFAULT '1' CHECK (STATE IN ('0', '1'));
+
+CREATE OR REPLACE TRIGGER AFTER_RENTAL_INSERT
+AFTER INSERT ON RENTAL_TBL
+FOR EACH ROW
+DECLARE
+BEGIN
+    UPDATE
+        COPY_TBL
+    SET
+        STATE = '0'
+    WHERE
+        COPY_ID = :NEW.COPY_ID;
+END AFTER_RENTAL_INSERT;
+
+INSERT INTO RENTAL_TBL (RENTAL_ID, RENTAL_DATE, EMPLOYEE_ID_RENT, READER_ID, COPY_ID) VALUES (RENTAL_SEQ.nextval, CURRENT_DATE, 1, 1, 2);
+SELECT * FROM COPY_TBL;
+
+-- 5.b
+
+-- 5.c
+
+-- 6.a
+CREATE TABLE EMPLOYEE_TBL_LOG
+(
+    EMPLOYEE_ID        NUMBER(6),
+    FIRST_NAME         VARCHAR2 (20 CHAR),
+    LAST_NAME          VARCHAR2 (20 CHAR),
+    POSITION_TITLE     VARCHAR2 (20),
+    SALARY             NUMBER (8,2),
+    STREET_NAME        VARCHAR2 (30 CHAR),
+    HOUSE_NUM          VARCHAR2 (8 CHAR),
+    APARTMENT_NUM      VARCHAR2 (8 CHAR),
+    POSTAL_CODE        VARCHAR2 (6 CHAR),
+    CITY               VARCHAR2 (20 CHAR),
+    MOBILE_PHONE       VARCHAR2 (9 CHAR),
+    CHANGE_DATE        DATE
+);
+
+CREATE OR REPLACE TRIGGER EMPLOYEE_TBL_ARCHIVE_TRIGGER
+BEFORE UPDATE ON EMPLOYEE_TBL
+FOR EACH ROW
+DECLARE
+BEGIN
+    INSERT INTO EMPLOYEE_TBL_LOG
+    VALUES (
+        :OLD.EMPLOYEE_ID,
+        :OLD.FIRST_NAME,
+        :OLD.LAST_NAME,
+        :OLD.POSITION_TITLE,
+        :OLD.SALARY,
+        :OLD.STREET_NAME,
+        :OLD.HOUSE_NUM,
+        :OLD.APARTMENT_NUM,
+        :OLD.POSTAL_CODE,
+        :OLD.CITY,
+        :OLD.MOBILE_PHONE,
+        SYSDATE
+    );
+END EMPLOYEE_TBL_ARCHIVE_TRIGGER;
+
+UPDATE EMPLOYEE_TBL
+SET MOBILE_PHONE = '999999999'
+WHERE EMPLOYEE_ID = 1;
+
+SELECT * FROM EMPLOYEE_TBL;
+SELECT *FROM EMPLOYEE_TBL_LOG;
+
+-- 6.b
+
+-- 6.c
+
+-- 7.a
+CREATE OR REPLACE TRIGGER LIMIT_LOANS_TRIGGER
+BEFORE INSERT ON RENTAL_TBL
+FOR EACH ROW
+DECLARE
+    v_max_loans CONSTANT NUMBER := 5; -- Set the maximum number of loans allowed
+    v_current_loans NUMBER;
+BEGIN
+    SELECT COUNT(*)
+    INTO v_current_loans
+    FROM RENTAL_TBL
+    WHERE READER_ID = :NEW.READER_ID;
+
+    IF v_current_loans >= v_max_loans THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Exceeded the maximum number of allowed loans for the reader.');
+    END IF;
+END LIMIT_LOANS_TRIGGER;
+
+INSERT INTO RENTAL_TBL (RENTAL_ID, RENTAL_DATE, EMPLOYEE_ID_RENT, READER_ID, COPY_ID) VALUES (RENTAL_SEQ.nextval, CURRENT_DATE, 1, 1, 4);
+
+-- 7.b
+
+-- 7.c
